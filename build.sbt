@@ -9,8 +9,9 @@ scalacOptions ++= Seq(
   "-unchecked",
   "-encoding", "UTF-8",
   "-Xlint",
+  "-target", "jvm-1.8"
 )
-
+javacOptions ++= Seq("-source", "1.8")
 val akka = "2.6.6"
 
 /* dependencies */
@@ -19,7 +20,11 @@ libraryDependencies ++= Seq (
   "ch.qos.logback"    % "logback-classic"           % "1.2.3",
   // -- Akka --
   "com.typesafe.akka" %% "akka-actor-typed"         % akka,
-  "com.typesafe.akka" %% "akka-cluster-typed"       % akka
+  "com.typesafe.akka" %% "akka-stream-typed"         % akka,
+  "com.typesafe.akka" %% "akka-http"         % "10.1.11",
+  "com.typesafe.akka" %% "akka-cluster-typed"       % akka,
+  "org.json" % "json"   % "20090211"
+
 )
 
 maintainer := "Michael Hamrah <m@hamrah.com>"
