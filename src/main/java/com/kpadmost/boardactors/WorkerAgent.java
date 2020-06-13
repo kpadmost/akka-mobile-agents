@@ -8,6 +8,7 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import com.kpadmost.board.BoardS;
 import com.kpadmost.board.IBoard;
+import scala.concurrent.Future;
 
 public class WorkerAgent extends AbstractBehavior<WorkerAgent.Command> {
     public interface Command {}
@@ -16,6 +17,16 @@ public class WorkerAgent extends AbstractBehavior<WorkerAgent.Command> {
         return Behaviors.setup(WorkerAgent::new);
     }
 
+
+    public static class UpdateLatency implements Command {
+        public final int newLatency;
+
+        public UpdateLatency(int newLatency) {
+            this.newLatency = newLatency;
+        }
+    }
+
+    private int latency = 30;
 
     private WorkerAgent(ActorContext<Command> context) {
         super(context);
@@ -60,6 +71,10 @@ public class WorkerAgent extends AbstractBehavior<WorkerAgent.Command> {
 
     private Behavior<Command> onUpdateBoard(UpdateBoard message) {
         update();
+//        Future<BoardUpdated> f = future(() -> {
+//
+//        });
+
         message.replyTo.tell(new BoardUpdated(message.requestId, board.toString()));
         return this;
     }
