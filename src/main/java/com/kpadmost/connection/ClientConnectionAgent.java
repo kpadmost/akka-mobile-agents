@@ -1,15 +1,14 @@
 package com.kpadmost.connection;
 
 import akka.NotUsed;
+import akka.actor.AbstractActor;
 import akka.actor.Cancellable;
-import akka.actor.typed.ActorRef;
+import akka.actor.ActorRef;
+import akka.actor.Props;
 import akka.actor.typed.ActorSystem;
-import akka.actor.typed.Behavior;
-import akka.actor.typed.javadsl.AbstractBehavior;
-import akka.actor.typed.javadsl.ActorContext;
-import akka.actor.typed.javadsl.Behaviors;
-import akka.actor.typed.javadsl.Receive;
-import akka.http.javadsl.OutgoingConnection;
+import akka.actor.typed.javadsl.Adapter;
+import akka.io.Tcp;
+import akka.io.TcpMessage;
 import akka.stream.javadsl.*;
 import akka.stream.typed.javadsl.ActorFlow;
 import akka.util.ByteString;
@@ -18,10 +17,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 import scala.util.control.Exception;
 
+import java.net.InetAddress;
 import java.time.Duration;
-import java.util.concurrent.CompletionStage;
 
-public class ClientConnectionAgent extends AbstractBehavior<ClientConnectionAgent.Command> {
+public class ClientConnectionAgent extends AbstractActor {
     // messages
     public interface Command {}
 
@@ -31,93 +30,62 @@ public class ClientConnectionAgent extends AbstractBehavior<ClientConnectionAgen
     private int latency;
 
     private final String clientId;
-    private final Tcp.IncomingConnection connection;
-    private ActorRef<WorkerAgent.Command> worker;
+    private final InetAddress connection;
+    private ActorRef socketSender = null;
+    private akka.actor.typed.ActorRef<WorkerAgent.Command> worker;
 
 
-    private ClientConnectionAgent(ActorContext<Command> context, Tcp.IncomingConnection connection, String clientId) { // TODO: dirty, get
-        super(context);
+    public static Props create(InetAddress connection, String clientId, int latency) {
+        return Props.create(ClientConnectionAgent.class, connection, clientId, latency);
+    }
+
+    public ClientConnectionAgent(InetAddress connection, String clientId, int latency) { // TODO: dirty, get
         this.clientId = clientId;
         this.connection = connection;
-        listenToConnections();
-        context.getLog().info("Agent has been created!");
+        this.latency = latency;
     }
 
-    public static Behavior<Command> create(Tcp.IncomingConnection connection, String clientId) {
-        return Behaviors.setup(context -> new ClientConnectionAgent(context, connection, clientId));
-    }
-
-
-    private Flow<ByteString, ByteString, NotUsed> commandParsing() {
-        return Flow.of(ByteString.class)
-                .via(JsonFraming.objectScanner(1))
-                .map(ByteString::utf8String)
-
-                .map(s -> {
-                    try {
-                        JSONObject o = new JSONObject(s);
-                        int lat = o.getInt("latency");
-//                        worker.
-                    } catch (JSONException e) {
-                        getContext().getLog().error(e.getMessage());
-                    }
-                    return "";
-                })
-                .map(ByteString::fromString);
-
-
-    }
-
-
-    private Flow<ByteString, ByteString, NotUsed> serverLogic() {
-        Source<ByteString, Cancellable> tk = Source.tick(Duration.ofMillis(300), Duration.ofMillis(10), ByteString.fromString(""));
-//        RunnableGraph<Sink<ByteString, NotUsed>> s = MergeHub.of(ByteString.class, 15).via(connection.flow());
-        worker = getContext().spawn(WorkerAgent.create(), String.format("worker-%s",  clientId));
-        final Flow<String, String, NotUsed> updateBoardFlow =
-                ActorFlow.<String, WorkerAgent.Command, WorkerAgent.BoardUpdated>ask
-                        (worker, Duration.ofSeconds(5), (str, replyTo) -> new WorkerAgent.UpdateBoard(5, replyTo))
-                        .via(Flow.of(WorkerAgent.BoardUpdated.class).map(updated -> updated.boardState));
-        return Flow.of(ByteString.class)
-                .merge(tk)
-                .map(ByteString::utf8String)
-                .via(updateBoardFlow)
-                .map(ans -> ans + "\n")
-                .map(ByteString::fromString)
-                ;
-    }
-
-    private Flow<ByteString, ByteString, NotUsed> serverLogic2() {
-        Source<ByteString, Cancellable> tk = Source.tick(Duration.ofMillis(1200), Duration.ofMillis(10), ByteString.fromString(""));
-//        RunnableGraph<Sink<ByteString, NotUsed>> s = MergeHub.of(ByteString.class, 15).via(connection.flow());
-        worker = getContext().spawn(WorkerAgent.create(), String.format("worker-%s",  clientId + "asd"));
-        final Flow<String, String, NotUsed> updateBoardFlow =
-                ActorFlow.<String, WorkerAgent.Command, WorkerAgent.BoardUpdated>ask
-                        (worker, Duration.ofSeconds(5), (str, replyTo) -> new WorkerAgent.UpdateBoard(5, replyTo))
-                        .via(Flow.of(WorkerAgent.BoardUpdated.class).map(updated -> updated.boardState));
-        return Flow.of(ByteString.class)
-                .merge(tk)
-                .map(ByteString::utf8String)
-                .via(updateBoardFlow)
-                .map(ans -> ans + "\n")
-                .map(ByteString::fromString)
-                ;
-    }
-
-
-
-    private void listenToConnections() {
-        final ActorSystem system = getContext().getSystem();
-        getContext().getLog().info("listening on connection");
-//        connection.
-        connection.handleWith(serverLogic(), system);
-        connection.handleWith(serverLogic2(), system);
-        getContext().getLog().info("Not frown out!");
-
-    }
 
     @Override
-    public Receive<Command> createReceive() {
-        return null;
+    public Receive createReceive() {
+        return receiveBuilder()
+                .match(
+                        Tcp.Received.class,
+                        msg -> {
+                            final ByteString data = msg.data();
+                            System.out.println(data.utf8String());
+                            if(socketSender == null)
+                                socketSender = getSender();
+                            else
+                                socketSender.tell(TcpMessage.write(data), getSelf());
+                            worker =  Adapter.spawn(getContext(), WorkerAgent.create(), "worker-" + clientId);
+                            getContext().getSystem().scheduler().scheduleAtFixedRate(
+                                    Duration.ofSeconds(1),
+                            Duration.ofMillis(50), () -> {
+                                        worker.tell(new WorkerAgent.UpdateBoard(50, getSelf()));
+                                    },
+                            getContext().getDispatcher());
+                        })
+                .match(
+                        Tcp.ConnectionClosed.class,
+                        msg -> {
+                            getContext().getSystem().log().info("Stop actor of " + clientId + "!");
+                            getContext().stop(getSelf());
+                        })
+                .match(
+                        WorkerAgent.BoardUpdated.class,
+                        msg -> {
+                            String upd = msg.boardState;
+
+                            socketSender.tell(TcpMessage.write(ByteString.fromString(upd + "\n")), getSelf());
+
+                })
+                .build();
+    }
+
+
+    private void parseConnection(String msg) {
+
     }
 
 }

@@ -3,21 +3,15 @@ package com.kpadmost;
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.ActorSystem;
 import akka.actor.typed.Behavior;
-import akka.actor.typed.javadsl.AbstractBehavior;
-import akka.actor.typed.javadsl.ActorContext;
-import akka.actor.typed.javadsl.Behaviors;
-import akka.actor.typed.javadsl.Receive;
+import akka.actor.typed.javadsl.*;
 import akka.cluster.ClusterEvent;
 import akka.cluster.typed.Cluster;
 import akka.cluster.typed.Subscribe;
-import akka.stream.javadsl.Sink;
-import akka.stream.javadsl.Source;
-import akka.stream.javadsl.Tcp;
+import akka.io.Tcp;
 import com.kpadmost.connection.ConnectionAgent;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
-import java.util.concurrent.CompletionStage;
 
 public final class ClusterListener extends AbstractBehavior<ClusterEvent.ClusterDomainEvent> {
 
@@ -40,19 +34,9 @@ public final class ClusterListener extends AbstractBehavior<ClusterEvent.Cluster
       ActorSystem<?> system = getContext().getSystem();
       int port = config.getInt("networking.port");
 
-      final Source<Tcp.IncomingConnection, CompletionStage<Tcp.ServerBinding>> connections =
-              Tcp.get(system).bind("0.0.0.0", port);
-    final ActorRef<ConnectionAgent.Command> connagent = getContext().spawn(ConnectionAgent.create(), "mainconn-agent");
-      connections.to(Sink.foreach(
-              connection -> {
+      final akka.actor.ActorRef tcpManager = Tcp.get(getContext().getSystem()).manager();
 
-                  system.log().info("Newconn1! " + connection.remoteAddress() + ", " + connection.localAddress() );
-                  final String mess = "Welcome to " + clusterName + ", " + connection.remoteAddress() + ", " + connection.localAddress();
-//                  final Flow servlog = echoLogic(system, mess);
-                connagent.tell(new ConnectionAgent.InitConnectionRequest(5, connection));
-//              connection.handleWith(servlog, system);
-              }
-      )).run(system);
+      final akka.actor.ActorRef connagent = Adapter.actorOf(getContext(), ConnectionAgent.props(tcpManager, port));
   }
 
   @Override

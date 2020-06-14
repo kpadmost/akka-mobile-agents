@@ -1,94 +1,93 @@
 package com.kpadmost.connection;
 
-import akka.actor.typed.ActorRef;
-import akka.actor.typed.Behavior;
-import akka.actor.typed.javadsl.AbstractBehavior;
-import akka.actor.typed.javadsl.ActorContext;
-import akka.actor.typed.javadsl.Behaviors;
-import akka.actor.typed.javadsl.Receive;
-import akka.stream.javadsl.Tcp;
+import akka.actor.AbstractActor;
+import akka.actor.ActorRef;
+import akka.actor.Props;
+//import akka.actor.typed.ActorRef;
+import akka.actor.typed.PreRestart;
+import akka.actor.typed.javadsl.*;
 
-import java.net.ServerSocket;
-import java.util.HashMap;
-import java.util.Map;
+
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
+import akka.io.Tcp;
+import akka.io.Tcp.Bound;
+import akka.io.Tcp.CommandFailed;
+import akka.io.Tcp.Connected;
+import akka.io.Tcp.ConnectionClosed;
+import akka.io.Tcp.Received;
+import akka.io.TcpMessage;
+import akka.util.ByteString;
+import org.json.JSONObject;
+
+import java.net.InetSocketAddress;
 import java.util.Random;
 
 
-public class ConnectionAgent extends AbstractBehavior<ConnectionAgent.Command> {
+public class ConnectionAgent extends AbstractActor {
     public interface Command {}
+    LoggingAdapter log;
 
-    public static class InitConnectionRequest implements Command {
-        public final int requestId;
-        final Tcp.IncomingConnection connection;
+    final ActorRef manager;
+    final int port;
 
-
-        public InitConnectionRequest(
-                int requestId,
-                Tcp.IncomingConnection connection
-        ) {
-            this.requestId = requestId;
-            this.connection = connection;
-        }
+    public static Props props(ActorRef manager, int port) {
+        return Props.create(ConnectionAgent.class, manager, port);
     }
 
-
-    public static class ConnectionEstablished {
-        public final String clientId;
-
-        public ConnectionEstablished(String clientId) {
-            this.clientId = clientId;
-        }
-    }
-
-
-    Map<String, ActorRef<ClientConnectionAgent.Command>> workerActors = new HashMap<>();
-
-    public static Behavior<Command> create() {
-        return Behaviors.setup(ConnectionAgent::new);
-    }
-
-    private ConnectionAgent(ActorContext<Command> context) {
-        super(context);
+    public ConnectionAgent(ActorRef manager, int port) {
+        this.manager = manager;
+        this.port = port;
+        this.log = Logging.getLogger(getContext().getSystem(), this);
+        listen();
     }
 
     @Override
-    public Receive<Command> createReceive() {
-        return newReceiveBuilder()
-                .onMessage(InitConnectionRequest.class, this::onEstablishConnection)
+    public void preStart() throws Exception {
+        final ActorRef tcpManager = Tcp.get(getContext().getSystem()).manager();
+        tcpManager.tell(TcpMessage.bind(getSelf(), new InetSocketAddress("0.0.0.0", port), 100), getSelf());
+    }
+
+    @Override
+    public Receive createReceive() {
+        return receiveBuilder()
+                .match(
+                        Bound.class,
+                        msg -> {
+                            log.info("Bound!" + msg.localAddress());
+
+                            manager.tell(msg, getSelf());
+                        })
+                .match(
+                        CommandFailed.class,
+                        msg -> {
+                            log.info("Failed");
+                            getContext().stop(getSelf());
+                        })
+                .match(
+                        Connected.class,
+                        conn -> {
+                            manager.tell(conn, getSelf());
+                            String clientId = generateRandomString();
+                            log.info("Connected!" + conn.remoteAddress() + " clid " + clientId);
+                            final ActorRef
+                                    handler =
+                                    getContext().actorOf(ClientConnectionAgent.create(conn.remoteAddress().getAddress(), clientId, 30));
+                            getSender().tell(TcpMessage.register(handler), getSelf());
+                            JSONObject obj = new JSONObject();
+                            obj.put("clid", clientId);
+                            getSender().tell(TcpMessage.write(ByteString.fromString(obj.toString() + "\n")), getSelf());
+                        })
                 .build();
-
-    }
-
-    public ConnectionAgent onEstablishConnection(InitConnectionRequest request) {
-        // assign client id
-        final String clientId = generateRandomString();
-        // create worker, ask him to bind port
-        try {
-            getContext().getLog().info("Establishing connection: " + clientId);
-            ActorRef<ClientConnectionAgent.Command> connWorker =
-                getContext()
-                        .spawn(ClientConnectionAgent.create(
-                                request.connection, clientId), "conn-worker-"+clientId);
-            getContext().getLog().info("Established connection: " + clientId);
-//            request.replyTo.tell(new ConnectionEstablished(clientId));
-        } catch (Exception e) {
-            getContext().getLog().error(e.getMessage());
-        }
-        return this;
-    }
-
-    private int getFreePort()  {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            socket.setReuseAddress(true);
-            return socket.getLocalPort();
-        } catch (Exception e) {
-            getContext().getLog().error(e.getMessage());
-        }
-        return 0;
     }
 
 
-    private String generateRandomString() {
+    private void listen() {
+
+    }
+
+
+    private static String generateRandomString() {
         int leftLimit = 48; // numeral '0'
         int rightLimit = 122; // letter 'z'
         int targetStringLength = 15;

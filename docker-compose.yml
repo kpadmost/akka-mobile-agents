@@ -5,6 +5,7 @@ services:
     image: lightbend/akka-sample-cluster-docker-compose-java:latest
     ports:
       - '1600:1600'
+     # - '50000-60000'
       - '127.0.0.1:10055:10055'
     cap_add:
       - NET_ADMIN
@@ -14,30 +15,30 @@ services:
       CLUSTER_IP: seed
       LISTEN_TCP_PORT : 10055
       SEED_PORT_1600_TCP_ADDR: seed
-  c1:
-    image: lightbend/akka-sample-cluster-docker-compose-java:latest
-    privileged: true
-    ports:
-      - '1601:1601'
-      - '127.0.0.1:10056:10056'
-    cap_add:
-      - NET_ADMIN
-    environment:
-      CLUSTER_PORT: 1601
-      CLUSTER_IP: c1
-      LISTEN_TCP_PORT : 10056
-      SEED_PORT_1600_TCP_ADDR: seed
-  c2:
-    image: lightbend/akka-sample-cluster-docker-compose-java:latest
-    privileged: true
-    cap_add:
-      - NET_ADMIN
-    ports:
-      - '1602:1602'
-      - '127.0.0.1:10057:10057'
-    environment:
-      CLUSTER_PORT: 1602
-      CLUSTER_IP: c2
-      LISTEN_TCP_PORT : 10057
-      SEED_PORT_1600_TCP_ADDR: seed
+#  c1:
+#    image: lightbend/akka-sample-cluster-docker-compose-java:latest
+#    privileged: true
+#    ports:
+#      - '1601:1601'
+#      - '127.0.0.1:10056:10056'
+#    cap_add:
+#      - NET_ADMIN
+#    environment:
+#      CLUSTER_PORT: 1601
+#      CLUSTER_IP: c1
+#      LISTEN_TCP_PORT : 10056
+#      SEED_PORT_1600_TCP_ADDR: seed
+#  c2:
+#    image: lightbend/akka-sample-cluster-docker-compose-java:latest
+#    privileged: true
+#    cap_add:
+#      - NET_ADMIN
+#    ports:
+#      - '1602:1602'
+#      - '127.0.0.1:10057:10057'
+#    environment:
+#      CLUSTER_PORT: 1602
+#      CLUSTER_IP: c2
+#      LISTEN_TCP_PORT : 10057
+#      SEED_PORT_1600_TCP_ADDR: seed
 

@@ -1,6 +1,12 @@
 package com.kpadmost.board;
 
+import akka.japi.Pair;
+import akka.util.ByteString;
 import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 
 public class BoardS implements IBoard {
     // TODO: this is stub for a physics-oriended board
@@ -53,21 +59,22 @@ public class BoardS implements IBoard {
         y = newY();
     }
 
-
-
-
-
-
     @Override
     public String toString() {
         try {
-            JSONObject js = new JSONObject();
-            js.put("x", x);
-            js.put("y", y);
-            return js.toString();
+           return String.format("%d:%d", x, y);
         } catch (Exception e) {
             System.out.println("exception in update:" + e.getMessage());
         }
-        return "{'x': -1, 'y': -1}";
+        return "-1:-1";
+    }
+
+    public static byte[] serialize(Object obj) throws IOException {
+        try(ByteArrayOutputStream b = new ByteArrayOutputStream()){
+            try(ObjectOutputStream o = new ObjectOutputStream(b)){
+                o.writeObject(obj);
+            }
+            return b.toByteArray();
+        }
     }
 }

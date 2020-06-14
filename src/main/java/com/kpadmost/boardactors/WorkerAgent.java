@@ -1,11 +1,8 @@
 package com.kpadmost.boardactors;
 
 import akka.actor.typed.Behavior;
-import akka.actor.typed.javadsl.ActorContext;
-import akka.actor.typed.ActorRef;
-import akka.actor.typed.javadsl.AbstractBehavior;
-import akka.actor.typed.javadsl.Behaviors;
-import akka.actor.typed.javadsl.Receive;
+import akka.actor.typed.javadsl.*;
+import akka.actor.ActorRef;
 import com.kpadmost.board.BoardS;
 import com.kpadmost.board.IBoard;
 import scala.concurrent.Future;
@@ -35,9 +32,9 @@ public class WorkerAgent extends AbstractBehavior<WorkerAgent.Command> {
 
     public static class UpdateBoard implements Command {
         public final int requestId;
-        public final ActorRef<BoardUpdated> replyTo;
+        public final akka.actor.ActorRef replyTo;
 
-        public UpdateBoard(int requestId, ActorRef<BoardUpdated> replyTo) {
+        public UpdateBoard(int requestId, ActorRef replyTo) {
             this.requestId = requestId;
             this.replyTo = replyTo;
         }
@@ -74,8 +71,8 @@ public class WorkerAgent extends AbstractBehavior<WorkerAgent.Command> {
 //        Future<BoardUpdated> f = future(() -> {
 //
 //        });
-
-        message.replyTo.tell(new BoardUpdated(message.requestId, board.toString()));
+        getContext().getLog().info("Updating board " + getContext().getSelf().path().name());
+        message.replyTo.tell(new BoardUpdated(message.requestId, board.toString()), Adapter.toClassic(getContext().getSelf()));
         return this;
     }
 
