@@ -11,23 +11,18 @@ public class WorkerAgent extends AbstractBehavior<WorkerAgent.Command> {
     public interface Command {}
 
     public static Behavior<Command> create() {
-        return Behaviors.setup(WorkerAgent::new);
+        return Behaviors.setup();
     }
 
 
-    public static class UpdateLatency implements Command {
-        public final int newLatency;
 
-        public UpdateLatency(int newLatency) {
-            this.newLatency = newLatency;
-        }
-    }
+    private final String entityId;
 
-    private int latency = 30;
 
-    private WorkerAgent(ActorContext<Command> context) {
+    private WorkerAgent(ActorContext<Command> context, String entityId) {
         super(context);
         board = new BoardS();
+        this.entityId = entityId;
     }
 
     public static class UpdateBoard implements Command {

@@ -72,7 +72,7 @@ public class ConnectionAgent extends AbstractActor {
                             log.info("Connected!" + conn.remoteAddress() + " clid " + clientId);
                             final ActorRef
                                     handler =
-                                    getContext().actorOf(ClientConnectionAgent.create(conn.remoteAddress().getAddress(), clientId, 30));
+                                    getContext().actorOf(ClientConnectionAgent.create(clientId, 50));
                             getSender().tell(TcpMessage.register(handler), getSelf());
                             JSONObject obj = new JSONObject();
                             obj.put("clid", clientId);
