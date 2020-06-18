@@ -1,6 +1,5 @@
 package com.kpadmost;
 
-import akka.actor.typed.ActorRef;
 import akka.actor.typed.ActorSystem;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
@@ -8,18 +7,19 @@ import akka.cluster.ClusterEvent;
 import akka.cluster.typed.Cluster;
 import akka.cluster.typed.Subscribe;
 import akka.io.Tcp;
-import com.kpadmost.connection.ConnectionAgent;
+import com.kpadmost.boardactors.WorkerAgent;
+import com.kpadmost.connection.TCPServiceAgent;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 
-public final class ClusterListener extends AbstractBehavior<ClusterEvent.ClusterDomainEvent> {
+public final class ClusterGuardian extends AbstractBehavior<ClusterEvent.ClusterDomainEvent> {
 
   public static Behavior<ClusterEvent.ClusterDomainEvent> create() {
-    return Behaviors.setup(ClusterListener::new);
+    return Behaviors.setup(ClusterGuardian::new);
   }
 
-  private ClusterListener(ActorContext<ClusterEvent.ClusterDomainEvent> context) {
+  private ClusterGuardian(ActorContext<ClusterEvent.ClusterDomainEvent> context) {
     super(context);
     context.getLog().debug("starting up cluster listener...");
     final Cluster cluster = Cluster.get(context.getSystem());
@@ -36,7 +36,8 @@ public final class ClusterListener extends AbstractBehavior<ClusterEvent.Cluster
 
       final akka.actor.ActorRef tcpManager = Tcp.get(getContext().getSystem()).manager();
 
-      final akka.actor.ActorRef connagent = Adapter.actorOf(getContext(), ConnectionAgent.props(tcpManager, port));
+      final akka.actor.ActorRef connagent = Adapter.actorOf(getContext(), TCPServiceAgent.props(tcpManager, port));
+      WorkerAgent.initSharding(system, 100);
   }
 
   @Override

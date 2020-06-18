@@ -4,8 +4,6 @@ import akka.actor.AbstractActor;
 import akka.actor.ActorRef;
 import akka.actor.Props;
 //import akka.actor.typed.ActorRef;
-import akka.actor.typed.PreRestart;
-import akka.actor.typed.javadsl.*;
 
 
 import akka.event.Logging;
@@ -14,31 +12,53 @@ import akka.io.Tcp;
 import akka.io.Tcp.Bound;
 import akka.io.Tcp.CommandFailed;
 import akka.io.Tcp.Connected;
-import akka.io.Tcp.ConnectionClosed;
-import akka.io.Tcp.Received;
 import akka.io.TcpMessage;
 import akka.util.ByteString;
 import org.json.JSONObject;
 
 import java.net.InetSocketAddress;
+import java.util.HashMap;
 import java.util.Random;
 
 
-public class ConnectionAgent extends AbstractActor {
-    public interface Command {}
+public class TCPServiceAgent extends AbstractActor {
     LoggingAdapter log;
 
     final ActorRef manager;
     final int port;
+    private int latency;
+    private HashMap<String, ActorRef> clientConnections;
 
-    public static Props props(ActorRef manager, int port) {
-        return Props.create(ConnectionAgent.class, manager, port);
+    public static class ChangeLatency {
+        public final int latency;
+        public final String clientId;
+        public ChangeLatency(int latency, String clientId) {
+            this.latency = latency;
+            this.clientId = clientId;
+        }
     }
 
-    public ConnectionAgent(ActorRef manager, int port) {
+    public static class RenewConnection { // on client supposed
+        public final String newOldClient;
+        public final String newClient;
+
+        public RenewConnection(String newOldClient, String newClient) {
+            this.newOldClient = newOldClient;
+            this.newClient = newClient;
+        }
+    }
+
+
+    public static Props props(ActorRef manager, int port) {
+        return Props.create(TCPServiceAgent.class, manager, port);
+    }
+
+    public TCPServiceAgent(ActorRef manager, int port) {
         this.manager = manager;
         this.port = port;
         this.log = Logging.getLogger(getContext().getSystem(), this);
+        this.latency = 50;
+        clientConnections = new HashMap<>();
         listen();
     }
 
@@ -65,19 +85,30 @@ public class ConnectionAgent extends AbstractActor {
                             getContext().stop(getSelf());
                         })
                 .match(
-                        Connected.class,
+                        Connected.class, // TODO: bug, what if reconnect?
                         conn -> {
                             manager.tell(conn, getSelf());
                             String clientId = generateRandomString();
-                            log.info("Connected!" + conn.remoteAddress() + " clid " + clientId);
-                            final ActorRef
-                                    handler =
-                                    getContext().actorOf(ClientConnectionAgent.create(clientId, 50));
+//                            log.info("Connected!" + conn.remoteAddress() + " clid " + clientId);
+                            final ActorRef handler =  getContext().actorOf(ClientConnectionAgent.create(clientId, latency));
+                            clientConnections.put(clientId, handler);
                             getSender().tell(TcpMessage.register(handler), getSelf());
                             JSONObject obj = new JSONObject();
                             obj.put("clid", clientId);
                             getSender().tell(TcpMessage.write(ByteString.fromString(obj.toString() + "\n")), getSelf());
                         })
+                .match(ChangeLatency.class, msg -> {
+                    ActorRef client =  clientConnections.get(msg.clientId);
+                    client.tell(new ClientConnectionAgent.LatencyChanged(msg.latency), getSelf());
+                }) // TODO: change connection death
+                .match(RenewConnection.class, msg -> {
+                    ActorRef clCon = clientConnections.get(msg.newClient);
+                    clientConnections.remove(msg.newClient);
+                    log.info("Renewing connection" + msg.newOldClient);
+//                    clCon.tell("stop", getSelf());
+                    clientConnections.put(msg.newOldClient, clCon);
+
+                })
                 .build();
     }
 

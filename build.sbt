@@ -20,9 +20,8 @@ libraryDependencies ++= Seq (
   "ch.qos.logback"    % "logback-classic"           % "1.2.3",
   // -- Akka --
   "com.typesafe.akka" %% "akka-actor-typed"         % akka,
-  "com.typesafe.akka" %% "akka-stream-typed"         % akka,
-  "com.typesafe.akka" %% "akka-http"         % "10.1.11",
   "com.typesafe.akka" %% "akka-cluster-typed"       % akka,
+  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akka,
   "org.json" % "json"   % "20090211"
 
 )
