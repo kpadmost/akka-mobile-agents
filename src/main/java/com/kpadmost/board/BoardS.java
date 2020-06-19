@@ -1,18 +1,18 @@
 package com.kpadmost.board;
 
-import akka.japi.Pair;
-import akka.util.ByteString;
-import org.json.JSONObject;
+import com.kpadmost.boardactors.WorkerAgent;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 
 public class BoardS implements IBoard {
     // TODO: this is stub for a physics-oriended board
-    private int x = 10;
-    private int y = 10;
-    private Speed speed = new Speed(10, 15);
+
+    // this is state
+
+
+
+    public int x = 25;
+    public int y = 25;
+    public Speed speed = new Speed(10, 18);
 
 
     public final int XMIN = 0;
@@ -22,13 +22,20 @@ public class BoardS implements IBoard {
 
     public final int WIDTH = 30;
     public final int HEIGHT = 30;
+
+    public BoardS(int x, int y, int dx, int dy) {
+        this.x = x;
+        this.y = y;
+        this.speed = new Speed(dx, dy);
+    }
+
     public BoardS() {}
 
-    private static final class Speed {
-        int dx;
-        int dy;
+    public static final class Speed {
+        public int dx;
+        public int dy;
 
-        public Speed(int dx, int dy) {
+        Speed(int dx, int dy) {
             this.dx = dx;
             this.dy = dy;
         }
@@ -37,7 +44,7 @@ public class BoardS implements IBoard {
 
     private int newX() {
         final int nX = x + speed.dx;
-        if(nX + WIDTH >= XMAX || nX <= 0) {
+        if(nX + WIDTH >= XMAX || nX <= XMIN) {
             speed.dx = -speed.dx;
             return x;
         }
@@ -46,7 +53,7 @@ public class BoardS implements IBoard {
 
     private int newY() {
         final int nY = y + speed.dy;
-        if(nY + HEIGHT >= YMAX || nY <= 0) {
+        if(nY + HEIGHT >= YMAX || nY <= yMIN) {
             speed.dy = -speed.dy;
             return y;
         }
@@ -69,12 +76,5 @@ public class BoardS implements IBoard {
         return "-1:-1";
     }
 
-    public static byte[] serialize(Object obj) throws IOException {
-        try(ByteArrayOutputStream b = new ByteArrayOutputStream()){
-            try(ObjectOutputStream o = new ObjectOutputStream(b)){
-                o.writeObject(obj);
-            }
-            return b.toByteArray();
-        }
-    }
+
 }

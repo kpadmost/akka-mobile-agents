@@ -1,6 +1,7 @@
 package com.kpadmost.connection;
 
 import akka.actor.*;
+import akka.actor.typed.ActorRef;
 import akka.actor.typed.javadsl.Adapter;
 import akka.cluster.sharding.external.ExternalShardAllocation;
 import akka.cluster.sharding.external.javadsl.ExternalShardAllocationClient;
@@ -47,7 +48,7 @@ public class ClientConnectionAgent extends AbstractActor {
     private int initialLatency;
 
     private String clientId; // might change if agent was
-    private ActorRef socketSender = null;
+    private akka.actor.ActorRef socketSender = null;
     private EntityRef<WorkerAgent.Command> worker;
 
     private ClusterSharding sharding;
@@ -100,7 +101,7 @@ public class ClientConnectionAgent extends AbstractActor {
                             getContext().stop(getSelf());
                         })
                 .match(
-                        WorkerAgent.BoardUpdated.class, // on tell agent, send to
+                        WorkerAgent.BoardUpdatedResponse.class, // on tell agent, send to
                         msg -> {
                             String upd = msg.boardState;
                             socketSender.tell(TcpMessage.write(ByteString.fromString(upd + "\n")), getSelf());
@@ -119,7 +120,8 @@ public class ClientConnectionAgent extends AbstractActor {
                     updateEmission = getContext().getSystem().scheduler().scheduleAtFixedRate(
                             Duration.ofSeconds(1),
                             Duration.ofMillis(msg.latency), () -> {
-                                worker.tell(new WorkerAgent.UpdateBoard(50, getSelf()));
+                                ActorRef<WorkerAgent.Command> ref = Adapter.<WorkerAgent.Command>toTyped(getSelf());
+                                worker.tell(new WorkerAgent.UpdateBoard(50, ref));
                             },
                             getContext().getDispatcher());
 
@@ -134,7 +136,8 @@ public class ClientConnectionAgent extends AbstractActor {
                         updateEmission = getContext().getSystem().scheduler().scheduleAtFixedRate(
                                 Duration.ofSeconds(1),
                                 Duration.ofMillis(initialLatency), () -> {
-                                    worker.tell(new WorkerAgent.UpdateBoard(50, getSelf()));
+                                    ActorRef<WorkerAgent.Command> ref = Adapter.toTyped(getSelf());
+                                    worker.tell(new WorkerAgent.UpdateBoard(50, ref));
                                 },
                                 getContext().getDispatcher());
                     }

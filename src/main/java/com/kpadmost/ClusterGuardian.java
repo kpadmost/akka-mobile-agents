@@ -7,6 +7,8 @@ import akka.cluster.ClusterEvent;
 import akka.cluster.typed.Cluster;
 import akka.cluster.typed.Subscribe;
 import akka.io.Tcp;
+import akka.persistence.journal.leveldb.SharedLeveldbJournal;
+import akka.persistence.journal.leveldb.SharedLeveldbStore;
 import com.kpadmost.boardactors.WorkerAgent;
 import com.kpadmost.connection.TCPServiceAgent;
 import com.typesafe.config.Config;

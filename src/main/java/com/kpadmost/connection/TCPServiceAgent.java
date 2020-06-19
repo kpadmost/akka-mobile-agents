@@ -57,7 +57,7 @@ public class TCPServiceAgent extends AbstractActor {
         this.manager = manager;
         this.port = port;
         this.log = Logging.getLogger(getContext().getSystem(), this);
-        this.latency = 50;
+        this.latency = 1500;
         clientConnections = new HashMap<>();
         listen();
     }
