@@ -89,7 +89,7 @@ public class TCPServiceAgent extends AbstractActor {
                         conn -> {
                             manager.tell(conn, getSelf());
                             String clientId = generateRandomString();
-//                            log.info("Connected!" + conn.remoteAddress() + " clid " + clientId);
+                            log.info("Connected!" + conn.remoteAddress() + " clid " + clientId);
                             final ActorRef handler =  getContext().actorOf(ClientConnectionAgent.create(clientId, latency));
                             clientConnections.put(clientId, handler);
                             getSender().tell(TcpMessage.register(handler), getSelf());

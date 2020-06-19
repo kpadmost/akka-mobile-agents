@@ -4,21 +4,18 @@ import akka.actor.typed.ActorSystem;
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.*;
 import akka.actor.typed.ActorRef;
-import akka.cluster.sharding.ShardRegion;
 import akka.cluster.sharding.external.ExternalShardAllocationStrategy;
-import akka.cluster.sharding.typed.HashCodeMessageExtractor;
-import akka.cluster.sharding.typed.ShardingEnvelope;
-import akka.cluster.sharding.typed.ShardingMessageExtractor;
 import akka.cluster.sharding.typed.javadsl.ClusterSharding;
 import akka.cluster.sharding.typed.javadsl.Entity;
 import akka.cluster.sharding.typed.javadsl.EntityTypeKey;
-import akka.dispatch.Envelope;
 import akka.persistence.typed.javadsl.CommandHandler;
 import akka.persistence.typed.javadsl.Effect;
 import akka.persistence.typed.javadsl.EventHandler;
 import akka.util.Timeout;
+//import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kpadmost.board.BoardS;
-import com.kpadmost.board.IBoard;
 //import akka.serialization
 
 import akka.persistence.typed.javadsl.EventSourcedBehavior;
@@ -46,12 +43,23 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
     // message
     public static class UpdateBoard implements Command {
         public final int requestId;
-        public final ActorRef<BoardUpdatedResponse> replyTo;
 
-        public UpdateBoard(int requestId, ActorRef replyTo) {
+
+        public UpdateBoard(int requestId) {
             this.requestId = requestId;
-            this.replyTo = replyTo;
         }
+
+    }
+
+    public static class ReadState implements Command {
+        public final ActorRef<BoardUpdatedResponse> sender;
+
+
+
+        public ReadState(ActorRef<BoardUpdatedResponse> sender) {
+            this.sender = sender;
+        }
+
     }
 
     public static class BoardUpdatedResponse implements CborSerializable {
@@ -64,18 +72,25 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
 
     // response
     public static class BoardUpdated implements Event { // event
-        public final ActorRef<BoardUpdatedResponse> replyTo;
+//        public final ActorRef<BoardUpdatedResponse> replyTo;
 
-        public BoardUpdated(ActorRef<BoardUpdatedResponse> replyTo) {
-            this.replyTo = replyTo;
+//        public BoardUpdated(ActorRef<BoardUpdatedResponse> replyTo) {
+//            this.replyTo = replyTo;
+//        }
+        public final String even;
+        public BoardUpdated(@JsonProperty("even") String even) {
+            this.even = even;
         }
     }
+
 
     // add logic?
     public static class BoardState implements State {
         private BoardS board;
+        int counter = 0;
 
         private BoardState(BoardS board) {
+            this.counter = board.x;
             this.board = new BoardS(board.x, board.y, board.speed.dx, board.speed.dy);
         }
 
@@ -86,7 +101,7 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
 
         public BoardState updateBoard() {
             this.board.update();
-
+            System.out.println("co" + ++counter);
             return new BoardState(this.board);
         }
 
@@ -102,27 +117,39 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
     }
 
 
-    private Effect<Event, State> onUpdateBoard(State state, UpdateBoard cmd) {
-        return Effect()
-                .persist(new BoardUpdated(cmd.replyTo))
-                .thenRun(newState -> cmd.replyTo.tell(new BoardUpdatedResponse(newState.toString())));
-    }
+
 
     @Override
     public CommandHandler<Command, Event, State> commandHandler() {
         return newCommandHandlerBuilder()
                 .forAnyState()
                 .onCommand(UpdateBoard.class, this::onUpdateBoard)
+                .onCommand(ReadState.class, this::onReadSender)
                 .build();
     }
 
 
+    private Effect<Event, State> onReadSender(State state, ReadState cmd) {
+        return Effect().none()
+                .thenRun(newst -> {
+                    System.out.println("change sender!!!!" + newst.toString());
+                    cmd.sender.tell(new BoardUpdatedResponse(newst.toString()));
+                });
+    }
+
+
+
+    private Effect<Event, State> onUpdateBoard(State state, UpdateBoard cmd) {
+        return Effect()
+                .persist(new BoardUpdated("asd"));
+
+    }
 
     @Override
     public EventHandler<State, Event> eventHandler() {
         return newEventHandlerBuilder()
                 .forAnyState()
-                .onEvent(BoardUpdated.class, (s, bu) -> s.updateBoard())
+                .onEvent(BoardUpdated.class, (State s, BoardUpdated bu) -> s.updateBoard())
                 .build();
     }
 
@@ -154,21 +181,8 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
 
     private WorkerAgent(String entityId, PersistenceId persistenceId) {
         super(persistenceId);
-        board = new BoardS();
         this.entityId = entityId;
     }
-
-
-
-    private IBoard board;
-
-
-
-    private void update() {
-        board.update();
-    }
-
-
 
 }
 

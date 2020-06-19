@@ -17,6 +17,8 @@ import org.json.JSONObject;
 
 import akka.cluster.sharding.typed.javadsl.ClusterSharding;
 import akka.cluster.sharding.typed.javadsl.EntityRef;
+import scala.collection.immutable.List;
+
 import java.time.Duration;
 
 public class ClientConnectionAgent extends AbstractActor {
@@ -32,7 +34,11 @@ public class ClientConnectionAgent extends AbstractActor {
     }
 
     public static class InitEmission {
+        public final int latency;
 
+        public InitEmission(int latency) {
+            this.latency = latency;
+        }
     }
 
     static class Reconnect {
@@ -120,8 +126,9 @@ public class ClientConnectionAgent extends AbstractActor {
                     updateEmission = getContext().getSystem().scheduler().scheduleAtFixedRate(
                             Duration.ofSeconds(1),
                             Duration.ofMillis(msg.latency), () -> {
-                                ActorRef<WorkerAgent.Command> ref = Adapter.<WorkerAgent.Command>toTyped(getSelf());
-                                worker.tell(new WorkerAgent.UpdateBoard(50, ref));
+                                ActorRef<WorkerAgent.BoardUpdatedResponse> ref = Adapter.toTyped(getSelf());
+                                worker.tell(new WorkerAgent.UpdateBoard(50));
+                                worker.tell(new WorkerAgent.ReadState(ref));
                             },
                             getContext().getDispatcher());
 
@@ -135,9 +142,10 @@ public class ClientConnectionAgent extends AbstractActor {
 
                         updateEmission = getContext().getSystem().scheduler().scheduleAtFixedRate(
                                 Duration.ofSeconds(1),
-                                Duration.ofMillis(initialLatency), () -> {
-                                    ActorRef<WorkerAgent.Command> ref = Adapter.toTyped(getSelf());
-                                    worker.tell(new WorkerAgent.UpdateBoard(50, ref));
+                                Duration.ofMillis(msg.latency), () -> {
+                                    ActorRef<WorkerAgent.BoardUpdatedResponse> ref = Adapter.toTyped(getSelf());
+                                    worker.tell(new WorkerAgent.UpdateBoard(50));
+                                    worker.tell(new WorkerAgent.ReadState(ref));
                                 },
                                 getContext().getDispatcher());
                     }
@@ -146,12 +154,17 @@ public class ClientConnectionAgent extends AbstractActor {
                     log.info("Reconnecting " + clientId + "! to " + mst.whereTo);
                     log.info("Stop actor of " + clientId + "!");
                     final Cluster cluster = Cluster.get(Adapter.toTyped(getContext().getSystem()));
-                    Address addr =  cluster.state().members().toStream().filter(m -> m.address().system().equals(mst.whereTo)).map(m -> m.address()).reduce((a, b) -> a);
-                    if(addr != null) {
+                    cluster.state().members().toStream().foreach(m -> {
+                        Address s = m.address();
+                        log.info("addr " + s.system() +":" + s.host() + ":" + s.getHost().orElse("sadz"));
+                        return m;
+                    });
+                    List<Address> addr =  cluster.state().members().toStream().filter(m -> m.address().getHost().orElse("sadz").equals(mst.whereTo)).map(m -> m.address()).toList();
+                    if(addr != null && !addr.isEmpty()) {
                         log.info("new addr: " + addr.toString());
                         ExternalShardAllocationClient client =
                                 ExternalShardAllocation.get(Adapter.toTyped(getContext().getSystem())).getClient(WorkerAgent.ENTITY_TYPE_KEY.name());
-                        client.setShardLocation("shard_" + clientId, addr); // TODO: add professional mapping
+                        client.setShardLocation("shard_" + clientId, addr.head()); // TODO: add professional mapping
                         getContext().stop(getSelf());
                     }
 
@@ -168,12 +181,15 @@ public class ClientConnectionAgent extends AbstractActor {
                 int newLatency = js.getInt("latency");
                 onChangeLatency(newLatency);
             } else if(command.equals("init")) {
-                onInit();
+                int newLatency = js.getInt("latency");
+                onInit(newLatency);
             } else if(command.equals("reconnect")) {
                 String whereTo = js.getString("where");
                 onReconnect(whereTo);
             } else if(command.equals("renew_connection")) {
-
+                String oldId = js.getString("clid");
+                int latency = js.getInt("latency");
+                onRenew(oldId, latency);
             }
         } catch (JSONException e) {
             getContext().getSystem().log().error("FAiled parse message! " + e.getMessage());
@@ -187,13 +203,30 @@ public class ClientConnectionAgent extends AbstractActor {
     private void onReconnect(String where) {
         getSelf().tell(new Reconnect(where), getSelf());
     }
+    private void onRenew(String oldClient, int latency) {
+        getSelf().tell(new TCPServiceAgent.RenewConnection(oldClient, clientId), getSelf());
+        getContext().getSystem().log().info("init old on " + clientId);
+
+        if(worker == null) {
+            worker = sharding.entityRefFor(WorkerAgent.ENTITY_TYPE_KEY, clientId);
+            ActorRef<WorkerAgent.BoardUpdatedResponse> ref1 = Adapter.toTyped(getSelf());
+            updateEmission = getContext().getSystem().scheduler().scheduleAtFixedRate(
+                    Duration.ofSeconds(1),
+                    Duration.ofMillis(latency), () -> {
+                        ActorRef<WorkerAgent.BoardUpdatedResponse> ref = Adapter.toTyped(getSelf());
+                        worker.tell(new WorkerAgent.UpdateBoard(50));
+                        worker.tell(new WorkerAgent.ReadState(ref));
+                    },
+                    getContext().getDispatcher());
+        }
+    }
 
     private void onChangeLatency(int newLatency) {
           getContext().parent().tell(new TCPServiceAgent.ChangeLatency(newLatency, clientId), getSelf());
     }
 
-    private void onInit() {
-        getSelf().tell(new InitEmission(), getSelf());
+    private void onInit(int latency) {
+        getSelf().tell(new InitEmission(latency), getSelf());
     }
 
 }

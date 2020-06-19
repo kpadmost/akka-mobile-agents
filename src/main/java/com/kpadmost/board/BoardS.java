@@ -1,9 +1,10 @@
 package com.kpadmost.board;
 
 import com.kpadmost.boardactors.WorkerAgent;
+import com.kpadmost.serialization.CborSerializable;
 
 
-public class BoardS implements IBoard {
+public class BoardS implements  CborSerializable {
     // TODO: this is stub for a physics-oriended board
 
     // this is state
@@ -16,9 +17,9 @@ public class BoardS implements IBoard {
 
 
     public final int XMIN = 0;
-    public final int XMAX = 400;
+    public final int XMAX = 1750;
     public final int yMIN = 0;
-    public final int YMAX = 400;
+    public final int YMAX = 2765;
 
     public final int WIDTH = 30;
     public final int HEIGHT = 30;
@@ -60,7 +61,7 @@ public class BoardS implements IBoard {
         return nY;
     }
 
-    @Override
+
     public final void update() {
         x = newX();
         y = newY();

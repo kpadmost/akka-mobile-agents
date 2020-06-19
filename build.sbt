@@ -1,7 +1,9 @@
 organization := "com.mlh"
 
 /* scala versions and options */
+//scalaVersion := "2.12"
 scalaVersion := "2.13.1"
+resolvers += Resolver.bintrayRepo("dnvriend", "maven")
 
 // These options will be used for *all* versions.
 scalacOptions ++= Seq(
@@ -13,7 +15,7 @@ scalacOptions ++= Seq(
 )
 javacOptions ++= Seq("-source", "1.8")
 val akka = "2.6.6"
-
+//val akka = "2.5.15"
 /* dependencies */
 libraryDependencies ++= Seq (
   // -- Logging --
@@ -21,8 +23,15 @@ libraryDependencies ++= Seq (
   // -- Akka --
   "com.typesafe.akka" %% "akka-actor-typed"         % akka,
   "com.typesafe.akka" %% "akka-cluster-typed"       % akka,
+  "com.typesafe.akka" %% "akka-persistence-typed" % akka,
+  "com.typesafe.akka" %% "akka-serialization-jackson" % akka,
   "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akka,
-  "org.json" % "json"   % "20090211"
+  "com.typesafe.akka" %% "akka-persistence-cassandra" % "1.0.1",
+  "org.json" % "json"   % "20090211",
+  "com.typesafe.akka" %% "akka-persistence-query" % akka,
+  "com.typesafe.akka" %% "akka-cluster-tools" % akka,
+//  "com.github.dnvriend" %% "akka-persistence-inmemory" % "2.5.15.2"
+//  "com.lightbend.akka" %% "akka-persistence-couchbase" % "1.0"
 
 )
 
