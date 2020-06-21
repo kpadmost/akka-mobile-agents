@@ -83,12 +83,11 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
     }
 
 
-    // add logic?
     public static class BoardState implements State {
         private BoardS board;
 
         private BoardState(BoardS board) {
-            this.board = new BoardS(board.x, board.y, board.speed.dx, board.speed.dy);
+            this.board = new BoardS(board);
         }
 
         public BoardState() {

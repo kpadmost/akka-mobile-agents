@@ -11,9 +11,9 @@ public class BoardS implements  CborSerializable {
 
 
 
-    public int x = 25;
-    public int y = 25;
-    public Speed speed = new Speed(10, 18);
+    private int x = 25;
+    private int y = 25;
+    private Speed speed = new Speed(10, 18);
 
 
     public final int XMIN = 0;
@@ -24,13 +24,19 @@ public class BoardS implements  CborSerializable {
     public final int WIDTH = 30;
     public final int HEIGHT = 30;
 
+    public BoardS() {}
+
+    public BoardS(BoardS board) {
+        this.x = board.x;
+        this.y = board.y;
+        this.speed = board.speed;
+    }
+
     public BoardS(int x, int y, int dx, int dy) {
         this.x = x;
         this.y = y;
         this.speed = new Speed(dx, dy);
     }
-
-    public BoardS() {}
 
     public static final class Speed implements CborSerializable {
         public int dx;
@@ -41,6 +47,8 @@ public class BoardS implements  CborSerializable {
             this.dy = dy;
         }
     }
+
+
 
 
     private int newX() {
