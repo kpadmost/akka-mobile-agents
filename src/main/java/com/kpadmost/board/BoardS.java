@@ -32,7 +32,7 @@ public class BoardS implements  CborSerializable {
 
     public BoardS() {}
 
-    public static final class Speed {
+    public static final class Speed implements CborSerializable {
         public int dx;
         public int dy;
 

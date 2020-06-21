@@ -13,7 +13,7 @@ scalacOptions ++= Seq(
   "-Xlint",
   "-target", "jvm-1.8"
 )
-javacOptions ++= Seq("-source", "1.8")
+javacOptions ++= Seq("-source", "1.8", "-parameters")
 val akka = "2.6.6"
 //val akka = "2.5.15"
 /* dependencies */
@@ -24,8 +24,10 @@ libraryDependencies ++= Seq (
   "com.typesafe.akka" %% "akka-actor-typed"         % akka,
   "com.typesafe.akka" %% "akka-cluster-typed"       % akka,
   "com.typesafe.akka" %% "akka-persistence-typed" % akka,
-  "com.typesafe.akka" %% "akka-serialization-jackson" % akka,
-  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akka,
+  "com.typesafe.akka" %% "akka-serialization-jackson" %  akka,
+  "com.fasterxml.jackson.module" % "jackson-module-paranamer" % "2.2.3",
+
+"com.typesafe.akka" %% "akka-cluster-sharding-typed" % akka,
   "com.typesafe.akka" %% "akka-persistence-cassandra" % "1.0.1",
   "org.json" % "json"   % "20090211",
   "com.typesafe.akka" %% "akka-persistence-query" % akka,

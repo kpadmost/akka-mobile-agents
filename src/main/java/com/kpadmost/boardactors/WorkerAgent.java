@@ -12,8 +12,7 @@ import akka.persistence.typed.javadsl.CommandHandler;
 import akka.persistence.typed.javadsl.Effect;
 import akka.persistence.typed.javadsl.EventHandler;
 import akka.util.Timeout;
-//import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonCreator;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kpadmost.board.BoardS;
 //import akka.serialization
@@ -45,18 +44,18 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
         public final int requestId;
 
 
-        public UpdateBoard(int requestId) {
+        public UpdateBoard(@JsonProperty("requestId") int requestId) {
             this.requestId = requestId;
         }
 
     }
 
-    public static class ReadState implements Command {
+    public static class ReadBoardState implements Command {
         public final ActorRef<BoardUpdatedResponse> sender;
 
 
 
-        public ReadState(ActorRef<BoardUpdatedResponse> sender) {
+        public ReadBoardState(@JsonProperty("sender")  ActorRef<BoardUpdatedResponse> sender) {
             this.sender = sender;
         }
 
@@ -65,7 +64,7 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
     public static class BoardUpdatedResponse implements CborSerializable {
         public final String boardState;
 
-        public BoardUpdatedResponse(String boardState) {
+        public BoardUpdatedResponse(@JsonProperty("boardState")  String boardState) {
             this.boardState = boardState;
         }
     }
@@ -87,21 +86,20 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
     // add logic?
     public static class BoardState implements State {
         private BoardS board;
-        int counter = 0;
 
         private BoardState(BoardS board) {
-            this.counter = board.x;
             this.board = new BoardS(board.x, board.y, board.speed.dx, board.speed.dy);
         }
 
         public BoardState() {
+
+            System.out.println("conns ");
             board = new BoardS();
         }
 
 
         public BoardState updateBoard() {
             this.board.update();
-            System.out.println("co" + ++counter);
             return new BoardState(this.board);
         }
 
@@ -124,15 +122,14 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
         return newCommandHandlerBuilder()
                 .forAnyState()
                 .onCommand(UpdateBoard.class, this::onUpdateBoard)
-                .onCommand(ReadState.class, this::onReadSender)
+                .onCommand(ReadBoardState.class, this::onReadSender)
                 .build();
     }
 
 
-    private Effect<Event, State> onReadSender(State state, ReadState cmd) {
+    private Effect<Event, State> onReadSender(State state, ReadBoardState cmd) {
         return Effect().none()
                 .thenRun(newst -> {
-                    System.out.println("change sender!!!!" + newst.toString());
                     cmd.sender.tell(new BoardUpdatedResponse(newst.toString()));
                 });
     }
@@ -150,14 +147,9 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
         return newEventHandlerBuilder()
                 .forAnyState()
                 .onEvent(BoardUpdated.class, (State s, BoardUpdated bu) -> s.updateBoard())
+
                 .build();
     }
-
-
-
-
-
-
 
 
     public static void initSharding(ActorSystem<?> system, int maxShards) {

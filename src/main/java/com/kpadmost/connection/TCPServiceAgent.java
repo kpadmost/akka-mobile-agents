@@ -97,10 +97,10 @@ public class TCPServiceAgent extends AbstractActor {
                             obj.put("clid", clientId);
                             getSender().tell(TcpMessage.write(ByteString.fromString(obj.toString() + "\n")), getSelf());
                         })
-                .match(ChangeLatency.class, msg -> {
-                    ActorRef client =  clientConnections.get(msg.clientId);
-                    client.tell(new ClientConnectionAgent.LatencyChanged(msg.latency), getSelf());
-                }) // TODO: change connection death
+//                .match(ChangeLatency.class, msg -> {
+//                    ActorRef client =  clientConnections.get(msg.clientId);
+//                    client.tell(new ClientConnectionAgent.LatencyChanged(msg.latency), getSelf());
+//                }) // TODO: change connection death
                 .match(RenewConnection.class, msg -> {
                     ActorRef clCon = clientConnections.get(msg.newClient);
                     clientConnections.remove(msg.newClient);

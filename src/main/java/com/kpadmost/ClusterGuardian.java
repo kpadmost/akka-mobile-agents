@@ -7,8 +7,11 @@ import akka.cluster.ClusterEvent;
 import akka.cluster.typed.Cluster;
 import akka.cluster.typed.Subscribe;
 import akka.io.Tcp;
-import akka.persistence.journal.leveldb.SharedLeveldbJournal;
-import akka.persistence.journal.leveldb.SharedLeveldbStore;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
+import com.fasterxml.jackson.module.paranamer.ParanamerModule;
+import com.fasterxml.jackson.module.paranamer.ParanamerOnJacksonAnnotationIntrospector;
 import com.kpadmost.boardactors.WorkerAgent;
 import com.kpadmost.connection.TCPServiceAgent;
 import com.typesafe.config.Config;
@@ -31,6 +34,11 @@ public final class ClusterGuardian extends AbstractBehavior<ClusterEvent.Cluster
 
   private void listenOnConnections() {
       Config config = ConfigFactory.load();
+      ObjectMapper mapper = new ObjectMapper();
+// either via module
+      mapper.registerModule(new ParanamerModule());
+// or by directly assigning annotation introspector (but not both!)
+      mapper.setAnnotationIntrospector(new ParanamerOnJacksonAnnotationIntrospector());
       String clusterName = config.getString("clustering.cluster.name");
 
       ActorSystem<?> system = getContext().getSystem();
@@ -54,7 +62,7 @@ public final class ClusterGuardian extends AbstractBehavior<ClusterEvent.Cluster
         }).onMessage(ClusterEvent.MemberRemoved.class, event -> {
           getContext().getLog().info("Member is Removed: {} after {}", event.member().address(), event.previousStatus());
           return this;
-        }).onMessage(ClusterEvent.MemberRemoved.class, event -> {
+        }).onMessage(ClusterEvent.MemberEvent.class, event -> {
           getContext().getLog().info("Member Event: " + event.toString());
           return this;
         }).build();

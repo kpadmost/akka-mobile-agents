@@ -23,7 +23,6 @@ import java.time.Duration;
 
 public class ClientConnectionAgent extends AbstractActor {
     // messages
-    public interface Command {}
 
     public static class LatencyChanged {
         final int latency;
@@ -93,17 +92,12 @@ public class ClientConnectionAgent extends AbstractActor {
                             final ByteString data = msg.data();
                             System.out.println(data.utf8String());
                             parseConnectionData(data.utf8String());
-
-//                            socketSender.tell(TcpMessage.write(data), getSelf());
-
                         })
                 .match(
                         Tcp.ConnectionClosed.class,
                         msg -> {
                             getContext().getSystem().log().info("Stop actor of " + clientId + "!");
-                            if(updateEmission != null) {
-                                updateEmission.cancel();
-                            }
+                            cancelEmission();
                             getContext().stop(getSelf());
                         })
                 .match(
@@ -120,35 +114,15 @@ public class ClientConnectionAgent extends AbstractActor {
                 .match(LatencyChanged.class, msg -> {
                     getContext().getSystem().log().info("changing latency on " + clientId);
 
-                    if(updateEmission != null) {
-                        updateEmission.cancel(); // BUGFIX - race condition?
-                    }
-                    updateEmission = getContext().getSystem().scheduler().scheduleAtFixedRate(
-                            Duration.ofSeconds(1),
-                            Duration.ofMillis(msg.latency), () -> {
-                                ActorRef<WorkerAgent.BoardUpdatedResponse> ref = Adapter.toTyped(getSelf());
-                                worker.tell(new WorkerAgent.UpdateBoard(50));
-                                worker.tell(new WorkerAgent.ReadState(ref));
-                            },
-                            getContext().getDispatcher());
+                    cancelEmission();
+                    instatiateEmission(msg.latency);
 
 
                 })
                 .match(InitEmission.class, msg -> {
                     getContext().getSystem().log().info("init emission on " + clientId);
+                    instatiateEmission(msg.latency);
 
-                    if(worker == null) {
-                        worker = sharding.entityRefFor(WorkerAgent.ENTITY_TYPE_KEY, clientId);
-
-                        updateEmission = getContext().getSystem().scheduler().scheduleAtFixedRate(
-                                Duration.ofSeconds(1),
-                                Duration.ofMillis(msg.latency), () -> {
-                                    ActorRef<WorkerAgent.BoardUpdatedResponse> ref = Adapter.toTyped(getSelf());
-                                    worker.tell(new WorkerAgent.UpdateBoard(50));
-                                    worker.tell(new WorkerAgent.ReadState(ref));
-                                },
-                                getContext().getDispatcher());
-                    }
                 })
                 .match(Reconnect.class, mst -> {
                     log.info("Reconnecting " + clientId + "! to " + mst.whereTo);
@@ -162,6 +136,7 @@ public class ClientConnectionAgent extends AbstractActor {
                     List<Address> addr =  cluster.state().members().toStream().filter(m -> m.address().getHost().orElse("sadz").equals(mst.whereTo)).map(m -> m.address()).toList();
                     if(addr != null && !addr.isEmpty()) {
                         log.info("new addr: " + addr.toString());
+                        cancelEmission();
                         ExternalShardAllocationClient client =
                                 ExternalShardAllocation.get(Adapter.toTyped(getContext().getSystem())).getClient(WorkerAgent.ENTITY_TYPE_KEY.name());
                         client.setShardLocation("shard_" + clientId, addr.head()); // TODO: add professional mapping
@@ -172,7 +147,7 @@ public class ClientConnectionAgent extends AbstractActor {
                 .build();
     }
 
-
+    // function for parsing incoming JSON messages. For better experience use Akka Streams
     private void parseConnectionData(String msg) {
         try {
             JSONObject js = new JSONObject(msg);
@@ -196,33 +171,44 @@ public class ClientConnectionAgent extends AbstractActor {
         }
     }
 
-    private void inspectState() {
-
-    }
 
     private void onReconnect(String where) {
         getSelf().tell(new Reconnect(where), getSelf());
     }
+
     private void onRenew(String oldClient, int latency) {
         getSelf().tell(new TCPServiceAgent.RenewConnection(oldClient, clientId), getSelf());
+        clientId = oldClient;
         getContext().getSystem().log().info("init old on " + clientId);
 
+        instatiateEmission(latency);
+
+    }
+
+    private void instatiateEmission(int latency) {
         if(worker == null) {
             worker = sharding.entityRefFor(WorkerAgent.ENTITY_TYPE_KEY, clientId);
-            ActorRef<WorkerAgent.BoardUpdatedResponse> ref1 = Adapter.toTyped(getSelf());
+        }
             updateEmission = getContext().getSystem().scheduler().scheduleAtFixedRate(
                     Duration.ofSeconds(1),
                     Duration.ofMillis(latency), () -> {
                         ActorRef<WorkerAgent.BoardUpdatedResponse> ref = Adapter.toTyped(getSelf());
                         worker.tell(new WorkerAgent.UpdateBoard(50));
-                        worker.tell(new WorkerAgent.ReadState(ref));
+                        worker.tell(new WorkerAgent.ReadBoardState(ref));
                     },
                     getContext().getDispatcher());
+
+    }
+
+    private void cancelEmission() {
+        if(updateEmission != null) {
+            updateEmission.cancel();
         }
     }
 
     private void onChangeLatency(int newLatency) {
-          getContext().parent().tell(new TCPServiceAgent.ChangeLatency(newLatency, clientId), getSelf());
+        cancelEmission();
+        instatiateEmission(newLatency);
     }
 
     private void onInit(int latency) {
