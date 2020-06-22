@@ -71,10 +71,8 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
 
     // response
     public static class BoardUpdated implements Event { // event
-        public final String eventState;
-        public BoardUpdated(@JsonProperty("eventState") String eventState) {
-            this.eventState = eventState;
-        }
+        final int rq;
+        public BoardUpdated(@JsonProperty("rq") int rq){ this.rq = rq; }
     }
 
 
@@ -132,7 +130,7 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
 
     private Effect<Event, State> onUpdateBoard(State state, UpdateBoard cmd) {
         return Effect()
-                .persist(new BoardUpdated("asd"));
+                .persist(new BoardUpdated(1));
 
     }
 
