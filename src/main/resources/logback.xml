@@ -8,13 +8,22 @@
       </encoder>
   </appender>
 
-  <logger name="com.kpadmost" level="debug" additivity="false">
-    <appender-ref ref="console" />
-  </logger>
+<!--  <logger name="com.kpadmost" level="debug" additivity="false">-->
+<!--    <appender-ref ref="console" />-->
+<!--  </logger>-->
 
   <logger name="akka" level="info" additivity="false">
     <appender-ref ref="console" />
   </logger>
+
+  <logger name="org.apache.cassandra" level="INFO" >
+    <appender-ref ref="console" />
+  </logger>
+
+  <logger name="com.datastax.driver" level="ERROR" >
+    <appender-ref ref="console" />
+  </logger>
+
 
   <root level="warn">
     <appender-ref ref="console"/>

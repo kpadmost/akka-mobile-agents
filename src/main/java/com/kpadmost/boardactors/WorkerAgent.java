@@ -71,14 +71,9 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
 
     // response
     public static class BoardUpdated implements Event { // event
-//        public final ActorRef<BoardUpdatedResponse> replyTo;
-
-//        public BoardUpdated(ActorRef<BoardUpdatedResponse> replyTo) {
-//            this.replyTo = replyTo;
-//        }
-        public final String even;
-        public BoardUpdated(@JsonProperty("even") String even) {
-            this.even = even;
+        public final String eventState;
+        public BoardUpdated(@JsonProperty("eventState") String eventState) {
+            this.eventState = eventState;
         }
     }
 
@@ -146,7 +141,6 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
         return newEventHandlerBuilder()
                 .forAnyState()
                 .onEvent(BoardUpdated.class, (State s, BoardUpdated bu) -> s.updateBoard())
-
                 .build();
     }
 

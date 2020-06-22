@@ -3,9 +3,13 @@ services:
   seed:
     container_name: akka-sample-cluster-docker-compose-java_seed_1
     image: lightbend/akka-sample-cluster-docker-compose-java:latest
+    tty: true
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+
     ports:
       - '1600:1600'
-     # - '50000-60000'
       - '127.0.0.1:10051:10051'
     environment:
       CLUSTER_PORT: 1600
@@ -14,6 +18,10 @@ services:
       SEED_PORT_1600_TCP_ADDR: seed
   c1:
     image: lightbend/akka-sample-cluster-docker-compose-java:latest
+    tty: true
+    privileged: true
+    cap_add:
+      - NET_ADMIN
     ports:
       - '1601:1601'
       - '127.0.0.1:10056:10056'
@@ -24,6 +32,10 @@ services:
       SEED_PORT_1600_TCP_ADDR: seed
   c2:
     image: lightbend/akka-sample-cluster-docker-compose-java:latest
+    tty: true
+    privileged: true
+    cap_add:
+      - NET_ADMIN
     ports:
       - '1602:1602'
       - '127.0.0.1:10057:10057'
