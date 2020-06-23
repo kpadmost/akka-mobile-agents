@@ -90,22 +90,17 @@ public class TCPServiceAgent extends AbstractActor {
                             manager.tell(conn, getSelf());
                             String clientId = generateRandomString();
                             log.info("Connected!" + conn.remoteAddress() + " clid " + clientId);
-                            final ActorRef handler =  getContext().actorOf(ClientConnectionAgent.create(clientId, latency));
+                            final ActorRef handler =  getContext().actorOf(ClientConnectionAgent.create(clientId));
                             clientConnections.put(clientId, handler);
                             getSender().tell(TcpMessage.register(handler), getSelf());
                             JSONObject obj = new JSONObject();
                             obj.put("clid", clientId);
                             getSender().tell(TcpMessage.write(ByteString.fromString(obj.toString() + "\n")), getSelf());
                         })
-//                .match(ChangeLatency.class, msg -> {
-//                    ActorRef client =  clientConnections.get(msg.clientId);
-//                    client.tell(new ClientConnectionAgent.LatencyChanged(msg.latency), getSelf());
-//                }) // TODO: change connection death
                 .match(RenewConnection.class, msg -> {
                     ActorRef clCon = clientConnections.get(msg.newClient);
                     clientConnections.remove(msg.newClient);
                     log.info("Renewing connection" + msg.newOldClient);
-//                    clCon.tell("stop", getSelf());
                     clientConnections.put(msg.newOldClient, clCon);
 
                 })

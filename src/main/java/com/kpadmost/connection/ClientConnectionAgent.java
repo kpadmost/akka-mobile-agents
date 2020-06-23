@@ -58,8 +58,8 @@ public class ClientConnectionAgent extends AbstractActor {
 
 
 
-    public static Props create(String clientId, int latency) {
-        return Props.create(ClientConnectionAgent.class, clientId, latency);
+    public static Props create(String clientId) {
+        return Props.create(ClientConnectionAgent.class, clientId);
     }
 
     public ClientConnectionAgent(String clientId) { // TODO: dirty, get
@@ -98,6 +98,13 @@ public class ClientConnectionAgent extends AbstractActor {
                         WorkerAgent.BoardUpdatedResponse.class, // on tell agent, send to
                         msg -> {
                             String upd = msg.boardState;
+                            try {
+                                int is = Integer.parseInt(msg.boardState.split(":")[2]);
+                                if(is % 50 == 0)
+                                log.info("c send " + is);
+                            } catch (Exception e) {
+
+                            }
                             socketSender.tell(TcpMessage.write(ByteString.fromString(upd + "\n")), getSelf());
 
                 })
@@ -109,13 +116,13 @@ public class ClientConnectionAgent extends AbstractActor {
                     getContext().getSystem().log().info("changing latency on " + clientId);
 
                     cancelEmission();
-                    instatiateEmission(msg.latency);
+                    instatiateEmission();
 
 
                 })
                 .match(InitEmission.class, msg -> {
                     getContext().getSystem().log().info("init emission on " + clientId);
-                    instatiateEmission(msg.latency);
+                    instatiateEmission();
 
                 })
                 .match(Reconnect.class, mst -> {
@@ -165,7 +172,7 @@ public class ClientConnectionAgent extends AbstractActor {
         getSelf().tell(new Reconnect(where), getSelf());
     }
 
-    private void onRenew(String oldClient, int latency) {
+    private void onRenew(String oldClient) {
         getSelf().tell(new TCPServiceAgent.RenewConnection(oldClient, clientId), getSelf());
         clientId = oldClient;
         getContext().getSystem().log().info("init old on " + clientId);

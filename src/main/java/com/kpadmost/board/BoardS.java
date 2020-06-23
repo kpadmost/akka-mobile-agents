@@ -13,6 +13,7 @@ public class BoardS implements  CborSerializable {
 
     private int x = 25;
     private int y = 25;
+    int counter = 0;
     private Speed speed = new Speed(10, 18);
 
 
@@ -30,13 +31,9 @@ public class BoardS implements  CborSerializable {
         this.x = board.x;
         this.y = board.y;
         this.speed = board.speed;
+        this.counter = board.counter;
     }
 
-    public BoardS(int x, int y, int dx, int dy) {
-        this.x = x;
-        this.y = y;
-        this.speed = new Speed(dx, dy);
-    }
 
     public static final class Speed implements CborSerializable {
         public int dx;
@@ -73,12 +70,15 @@ public class BoardS implements  CborSerializable {
     public final void update() {
         x = newX();
         y = newY();
+        ++counter;
     }
 
     @Override
     public String toString() {
         try {
-           return String.format("%d:%d", x, y);
+            if(counter % 50 == 0)
+                System.out.println("c " + counter);
+           return String.format("%d:%d:%d", x, y, counter);
         } catch (Exception e) {
             System.out.println("exception in update:" + e.getMessage());
         }
