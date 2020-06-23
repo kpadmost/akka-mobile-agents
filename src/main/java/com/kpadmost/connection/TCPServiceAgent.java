@@ -22,23 +22,14 @@ import java.util.Random;
 
 
 public class TCPServiceAgent extends AbstractActor {
-    LoggingAdapter log;
+    private LoggingAdapter log;
 
-    final ActorRef manager;
-    final int port;
-    private int latency;
+    private final ActorRef manager;
+    private final int port;
     private HashMap<String, ActorRef> clientConnections;
 
-    public static class ChangeLatency {
-        public final int latency;
-        public final String clientId;
-        public ChangeLatency(int latency, String clientId) {
-            this.latency = latency;
-            this.clientId = clientId;
-        }
-    }
 
-    public static class RenewConnection { // on client supposed
+    public static class RenewConnection { // on client supposed reconnection with existing id
         public final String newOldClient;
         public final String newClient;
 
@@ -57,9 +48,7 @@ public class TCPServiceAgent extends AbstractActor {
         this.manager = manager;
         this.port = port;
         this.log = Logging.getLogger(getContext().getSystem(), this);
-        this.latency = 1500;
         clientConnections = new HashMap<>();
-        listen();
     }
 
     @Override
@@ -85,14 +74,17 @@ public class TCPServiceAgent extends AbstractActor {
                             getContext().stop(getSelf());
                         })
                 .match(
-                        Connected.class, // TODO: bug, what if reconnect?
+                        Connected.class,
                         conn -> {
                             manager.tell(conn, getSelf());
+
                             String clientId = generateRandomString();
                             log.info("Connected!" + conn.remoteAddress() + " clid " + clientId);
+                            // register handler
                             final ActorRef handler =  getContext().actorOf(ClientConnectionAgent.create(clientId));
                             clientConnections.put(clientId, handler);
                             getSender().tell(TcpMessage.register(handler), getSelf());
+                            // send new id to client
                             JSONObject obj = new JSONObject();
                             obj.put("clid", clientId);
                             getSender().tell(TcpMessage.write(ByteString.fromString(obj.toString() + "\n")), getSelf());
@@ -108,15 +100,10 @@ public class TCPServiceAgent extends AbstractActor {
     }
 
 
-    private void listen() {
-
-    }
-
-
     private static String generateRandomString() {
-        int leftLimit = 48; // numeral '0'
-        int rightLimit = 122; // letter 'z'
-        int targetStringLength = 15;
+        final int leftLimit = 48; // numeral '0'
+        final int rightLimit = 122; // letter 'z'
+        final int targetStringLength = 15;
         Random random = new Random();
 
         return random.ints(leftLimit, rightLimit + 1)

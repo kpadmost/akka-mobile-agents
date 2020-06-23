@@ -35,9 +35,9 @@ public final class ClusterGuardian extends AbstractBehavior<ClusterEvent.Cluster
   private void listenOnConnections() {
       Config config = ConfigFactory.load();
       ObjectMapper mapper = new ObjectMapper();
-// either via module
+        // either via module
       mapper.registerModule(new ParanamerModule());
-// or by directly assigning annotation introspector (but not both!)
+        // or by directly assigning annotation introspector (but not both!)
       mapper.setAnnotationIntrospector(new ParanamerOnJacksonAnnotationIntrospector());
       String clusterName = config.getString("clustering.cluster.name");
 

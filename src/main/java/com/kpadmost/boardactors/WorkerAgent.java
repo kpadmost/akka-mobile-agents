@@ -32,16 +32,16 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
 
     public interface Command extends CborSerializable {}
 
-    public interface Event extends CborSerializable {}
+    interface Event extends CborSerializable {}
 
     public interface State extends CborSerializable {
-        public State updateBoard();
+        State updateBoard();
     }
 
 
     // message
     public static class UpdateBoard implements Command {
-        public final int requestId;
+        final int requestId;
 
 
         public UpdateBoard(@JsonProperty("requestId") int requestId) {
@@ -51,7 +51,7 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
     }
 
     public static class ReadBoardState implements Command {
-        public final ActorRef<BoardUpdatedResponse> sender;
+        final ActorRef<BoardUpdatedResponse> sender;
 
 
 
@@ -64,15 +64,15 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
     public static class BoardUpdatedResponse implements CborSerializable {
         public final String boardState;
 
-        public BoardUpdatedResponse(@JsonProperty("boardState")  String boardState) {
+        BoardUpdatedResponse(@JsonProperty("boardState")  String boardState) {
             this.boardState = boardState;
         }
     }
 
-    // response
+    // event, on board updated
     public static class BoardUpdated implements Event { // event
-        final int rq;
-        public BoardUpdated(@JsonProperty("rq") int rq){ this.rq = rq; }
+        final int rq; // unused, but serializer refuses to work unless given
+        BoardUpdated(@JsonProperty("rq") int rq){ this.rq = rq; }
     }
 
 
@@ -82,9 +82,7 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
             this.board = new BoardS(board);
         }
 
-        public BoardState() {
-
-            System.out.println("conns ");
+        BoardState() {
             board = new BoardS();
         }
 
@@ -149,7 +147,7 @@ public class WorkerAgent extends EventSourcedBehavior<WorkerAgent.Command, Worke
 
     }
 
-    public static Behavior<Command> create(String entityId, PersistenceId persistenceId) {
+    static Behavior<Command> create(String entityId, PersistenceId persistenceId) {
         return Behaviors.setup(ctx -> new WorkerAgent(entityId, persistenceId));
     }
 

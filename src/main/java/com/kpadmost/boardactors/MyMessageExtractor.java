@@ -3,6 +3,7 @@ package com.kpadmost.boardactors;
 import akka.cluster.sharding.typed.ShardingEnvelope;
 import akka.cluster.sharding.typed.ShardingMessageExtractor;
 
+// message extractor for shardId, entityId mapper
 public class MyMessageExtractor<M> extends ShardingMessageExtractor<ShardingEnvelope<M>, M> {
     @Override
     public String entityId(ShardingEnvelope<M> message) {

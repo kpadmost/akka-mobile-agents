@@ -24,21 +24,16 @@ import java.time.Duration;
 public class ClientConnectionAgent extends AbstractActor {
     // messages
 
-    public static class LatencyChanged {
-        final int latency;
 
-        public LatencyChanged(int latency) {
-            this.latency = latency;
-        }
+
+    private static class InitEmission { // connecting for the first time
+
     }
 
-    public static class InitEmission {
-    }
-
-    static class Reconnect {
+    static class Reconnect { // client wishes to reconnect somewhere else
         final String whereTo;
 
-        public Reconnect(String whereTo) {
+        Reconnect(String whereTo) {
             this.whereTo = whereTo;
         }
     }
@@ -48,8 +43,8 @@ public class ClientConnectionAgent extends AbstractActor {
 
 
     private String clientId; // might change if agent was
-    private akka.actor.ActorRef socketSender = null;
-    private EntityRef<WorkerAgent.Command> worker;
+    private akka.actor.ActorRef clientSocket = null; // referes to client
+    private EntityRef<WorkerAgent.Command> worker; // holds board
 
     private ClusterSharding sharding;
     private LoggingAdapter log;
@@ -58,7 +53,7 @@ public class ClientConnectionAgent extends AbstractActor {
 
 
 
-    public static Props create(String clientId) {
+    static Props create(String clientId) {
         return Props.create(ClientConnectionAgent.class, clientId);
     }
 
@@ -68,7 +63,7 @@ public class ClientConnectionAgent extends AbstractActor {
 
 
     @Override
-    public void preStart() throws Exception, Exception {
+    public void preStart() throws Exception {
         super.preStart();
         sharding = ClusterSharding.get(Adapter.toTyped(getContext().getSystem()));
         log = getContext().getSystem().log();
@@ -80,8 +75,8 @@ public class ClientConnectionAgent extends AbstractActor {
                 .match(
                         Tcp.Received.class, // parsing raw data from socket
                         msg -> {
-                            if(socketSender == null)
-                                socketSender = getSender();
+                            if(clientSocket == null)
+                                clientSocket = getSender();
 
                             final ByteString data = msg.data();
                             System.out.println(data.utf8String());
@@ -101,23 +96,11 @@ public class ClientConnectionAgent extends AbstractActor {
                             try {
                                 int is = Integer.parseInt(msg.boardState.split(":")[2]);
                                 if(is % 50 == 0)
-                                log.info("c send " + is);
+                                log.debug("c send " + is);
                             } catch (Exception e) {
 
                             }
-                            socketSender.tell(TcpMessage.write(ByteString.fromString(upd + "\n")), getSelf());
-
-                })
-                .matchEquals("stop", msg -> {
-                    log.info("Stopping an actor");
-                    getContext().stop(getSelf());
-                })
-                .match(LatencyChanged.class, msg -> {
-                    getContext().getSystem().log().info("changing latency on " + clientId);
-
-                    cancelEmission();
-                    instatiateEmission();
-
+                            clientSocket.tell(TcpMessage.write(ByteString.fromString(upd + "\n")), getSelf());
 
                 })
                 .match(InitEmission.class, msg -> {
@@ -134,7 +117,10 @@ public class ClientConnectionAgent extends AbstractActor {
                         log.info("addr " + s.system() +":" + s.host() + ":" + s.getHost().orElse("sadz"));
                         return m;
                     });
-                    List<Address> addr =  cluster.state().members().toStream().filter(m -> m.address().getHost().orElse("sadz").equals(mst.whereTo)).map(m -> m.address()).toList();
+                    List<Address> addr =  cluster
+                            .state().members().toStream().
+                                    filter(m -> m.address().getHost().orElse("not_an_adress").equals(mst.whereTo))
+                            .map(m -> m.address()).toList();
                     if(addr != null && !addr.isEmpty()) {
                         log.info("new addr: " + addr.toString());
                         cancelEmission();
@@ -153,14 +139,18 @@ public class ClientConnectionAgent extends AbstractActor {
         try {
             JSONObject js = new JSONObject(msg);
             String command = js.getString("command"); // TODO add enum
-           if(command.equals("init")) {
-                onInit();
-            } else if(command.equals("reconnect")) {
-                String whereTo = js.getString("where");
-                onReconnect(whereTo);
-            } else if(command.equals("renew_connection")) {
-                String oldId = js.getString("clid");
-                onRenew(oldId);
+            switch (command) {
+                case "init":
+                    onInit();
+                    break;
+                case "reconnect":
+                    String whereTo = js.getString("where");
+                    onReconnect(whereTo);
+                    break;
+                case "renew_connection":
+                    String oldId = js.getString("clid");
+                    onRenew(oldId);
+                    break;
             }
         } catch (JSONException e) {
             getContext().getSystem().log().error("FAiled parse message! " + e.getMessage());
@@ -181,6 +171,9 @@ public class ClientConnectionAgent extends AbstractActor {
 
     }
 
+    // function for asking repeatedly workeractor to both update board and return updated board state.
+    // Why don't do it at the same time? UpdateBoard changes state, and according to the EventSource logic, while restoring
+    // state, responding would be repeated. ReadBoard does not change state so no persistence. Therefore, two messages
     private void instatiateEmission() {
         if(worker == null) {
             worker = sharding.entityRefFor(WorkerAgent.ENTITY_TYPE_KEY, clientId);
@@ -201,11 +194,6 @@ public class ClientConnectionAgent extends AbstractActor {
         if(updateEmission != null) {
             updateEmission.cancel();
         }
-    }
-
-    private void onChangeLatency() {
-        cancelEmission();
-        instatiateEmission();
     }
 
     private void onInit() {

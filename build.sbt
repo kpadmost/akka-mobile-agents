@@ -26,15 +26,11 @@ libraryDependencies ++= Seq (
   "com.typesafe.akka" %% "akka-persistence-typed" % akka,
   "com.typesafe.akka" %% "akka-serialization-jackson" %  akka,
   "com.fasterxml.jackson.module" % "jackson-module-paranamer" % "2.2.3",
-
-"com.typesafe.akka" %% "akka-cluster-sharding-typed" % akka,
+  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akka,
   "com.typesafe.akka" %% "akka-persistence-cassandra" % "1.0.1",
   "org.json" % "json"   % "20090211",
   "com.typesafe.akka" %% "akka-persistence-query" % akka,
   "com.typesafe.akka" %% "akka-cluster-tools" % akka,
-//  "com.github.dnvriend" %% "akka-persistence-inmemory" % "2.5.15.2"
-//  "com.lightbend.akka" %% "akka-persistence-couchbase" % "1.0"
-
 )
 
 maintainer := "Michael Hamrah <m@hamrah.com>"
