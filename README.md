@@ -1,5 +1,7 @@
 ##### Akka Mobile Agents in Mobile Cloud Project.
 
+Fork of https://github.com/akka/akka-sample-cluster-docker-compose-java
+
 Launching:
 1. Prerequisites:
     * Docker Compose
